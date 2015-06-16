@@ -9,6 +9,9 @@
  * Setup info (pin defs, etc)
  */
 
+#include <RH_ASK.h>
+#include <SPI.h> // Needed for compilation
+
 #define powerPin 3
 #define zeroDetectPin 2
 
