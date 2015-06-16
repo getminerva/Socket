@@ -9,24 +9,27 @@
   * Setup info (pin defs, etc)
   */
 
-#define relayPin 3
+#define powerPin 3
+#define zeroDetectPin 2
+
 #define txPin 0
 #define rxPin 1
 
 #define ON true
 #define OFF false
 
-String DEVID = "01af";
+String UUID = "01af";
 
 String inputString = "";
 bool stringComplete = false;
 
 String feats = "get||set||do";
 
-
 String action = "";
 String feat = "";
+
 int val = 100;
+int pre_val = 0;
 
 /*
  * Data Persistency
@@ -46,6 +49,37 @@ void getDeviceId() {
 
 /*
  * Communications
+ */
+
+bool isConnected() {
+    return true;
+}
+
+void establishContact() {
+    while (Serial.available() <= 0) {
+        Serial.print("UUID:");
+        Serial.println(UUID);
+        delay(300);
+    }
+    onConnect();
+}
+
+// Things to do on connect
+void onConnect() {
+    // hello
+    blink(1, 1000);
+    return;
+}
+
+// Things to do on disconnect
+void onDisconnect() {
+    // bye-bye
+    blink(2, 1000);
+    return;
+}
+
+/*
+ * CMD stuff
  */
 
 // Validates cmd
@@ -99,6 +133,7 @@ bool isValidCmd(String s) {
     return true;
 }
 
+// Executes the cmd
 void executeCmd(String cmd) {
     Serial.print("Executing : ");
     Serial.println(cmd);
@@ -106,58 +141,39 @@ void executeCmd(String cmd) {
     char achar = (char)action[0];
 
     switch (achar) {
-        case 'g':
-            // Universal get
-            break;
         case 's':
-            // Universal set
+            setBrightness(val);
             break;
         case 'd':
-            togglePower(relayPin);
+            togglePower();
             break;
     }
+
+    // case 'g' is default
+    Serial.print("Brightness: ");
+    Serial.println(getBrightness());
     return;
 }
 
+// Clear the internal cmd
 void clearCmd() {
     action = "";
     feat = "";
+    pre_val = val;
     val = 0;
 }
 
-bool isConnected() {
-    // TODO
-}
+void serialEvent() {
+    while (Serial.available()) {
+        // Get new byte(s)
+        char rcvChar = (char)Serial.read();
 
-void establishContact() {
-    while (Serial.available() <= 0) {
-        Serial.print("DEVID:");
-        Serial.println(DEVID);
-        delay(300);
+        inputString += rcvChar;
+        if (rcvChar == '\n') {
+            stringComplete = true;
+            Serial.print(inputString);
+        }
     }
-
-    onConnect();
-}
-
-// Things to do on connect
-void onConnect() {
-
-    while (Serial.available() <= 0) {
-        Serial.println("DEVID:01af");
-        delay(300);
-    }
-
-    // hello
-    blink(relayPin, 1, 1000);
-    return;
-}
-
-// Things to do on disconnect
-void onDisconnect() {
-
-    // bye-bye
-    blink(relayPin, 2, 1000);
-    return;
 }
 
 /*
@@ -165,63 +181,85 @@ void onDisconnect() {
  */
 
 // Function for getting the power status of the lightbulb
-bool getPower(int pin) {
-    // Assuming pin is in output
-    if ((0 <= pin) and (13 >= pin)) {
-        return ((bool)bitRead(PORTD, pin));
-    }
-    return false;
+bool getPower() {
+    return ((bool)bitRead(PORTD, powerPin));
 }
 
 // function for setting the power status of the lightbulb
-void setPower(int pin, bool state) {
+void setPower(bool state) {
     if (state == true) {
-        digitalWrite(pin, HIGH);
+        digitalWrite(powerPin, HIGH);
+        val = 100;
     }
     else {
-        digitalWrite(pin, LOW);
+        digitalWrite(powerPin, LOW);
+        val = 0;
     }
     return;
 }
 
 // function for toggling the power status of the lightbulb
-void togglePower(int pin) {
-    bool state = getPower(pin);
-    setPower(pin, (not state));
+void togglePower() {
+    // if Relay
+    bool state = getPower();
+    setPower((!state));
+
+    //if Triac
+    if (0 < val) {setBrightness(0);}
+    else {setBrightness(pre_val);}
 }
 
 // function for getting the brightness level of the lightbulb
-int getBrightness(int pin) {
-    return 1;
+int getBrightness() {
+    return val;
 }
 
 //function for setting the brightness level of the lightbulb
-void setBrightness(int pin, int val) {
+void setBrightness(int n_val) {
+    pre_val = val;
+    if (100 < n_val) {n_val = 100;}
+    else if (0 > val) {n_val = 0;}
+    val = n_val;
     return;
 }
 
+
+// Interrupt Output Power
+void interrupt_outputPowwer() {
+    //Delay before output
+    delayMicroseconds(val+1000);
+    digitalWrite(powerPin, HIGH);
+
+    delayMicroseconds(200);
+    digitalWrite(powerPin, LOW);
+    return;
+}
+
+void initInterrupt() {
+    return;
+}
 
 /*
  * Diagnostics
  */
 
 // Blink light n times
-void blink(int switchPin, int n, int d) {
+void blink(int n, int d) {
     // Don't give me a stupid number
     if ((0 >= n) or (0 >= d)) {return;}
     // Don't give me a huge number
     if ((10 < n) or (10000 < d)) {return;}
 
     for (int i = 0; i < n; i++) {
-        togglePower(switchPin);
+        togglePower();
         delay(d);
-        togglePower(switchPin);
+        togglePower();
         delay(d);
     }
 }
 
 // Pulses in an sinusodial fashion
-void pulse(int switchPin, int n) {
+void pulse(int n) {
     // Don't give me a stupid number
     if (0 >= n) {return;}
     // Don't give me a huge number
@@ -241,44 +279,34 @@ void pulse(int switchPin, int n) {
  */
 
 void setup() {
-  // Set it low first
-  digitalWrite(relayPin, LOW);
+    // Set it low first
+    digitalWrite(powerPin, LOW);
 
-  // Then set as output
-  pinMode(relayPin, OUTPUT);
-  setPower(relayPin, ON);
+    // Then set as output
+    pinMode(powerPin, OUTPUT);
+    setPower(ON);
 
-  // Blink at first power on
-  blink(relayPin, 2, 100);
-  setPower(relayPin, ON);
+    // Blink at first power on
+    blink(2, 100);
+    setPower(ON);
 
-  Serial.begin(9600);
-  Serial.println("[socket] is ready.");
+    Serial.begin(9600);
+    Serial.println("[socket] is ready.");
 
-  establishContact();
+    establishContact();
 }
 
 void loop() {
-  if (stringComplete) {
-    if (isValidCmd(inputString)) {
-      executeCmd(inputString);
-      clearCmd();
+    if (stringComplete) {
+        if (isValidCmd(inputString)) {
+            executeCmd(inputString);
+            clearCmd();
+        }
+        inputString = "";
+        stringComplete = false;
+        Serial.flush();
     }
-    inputString = "";
-    stringComplete = false;
-    Serial.flush();
-  }
-}
-
-void serialEvent() {
-  while (Serial.available()) {
-    // Get new byte(s)
-    char rcvChar = (char)Serial.read();
-
-    inputString += rcvChar;
-    if (rcvChar == '\n') {
-      stringComplete = true;
-//      Serial.print(inputString);
+    if (!isConnected()) {
+        onDisconnect();
     }
-  }
 }
