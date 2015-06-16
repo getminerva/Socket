@@ -5,9 +5,9 @@
  */
 
 
- /*
-  * Setup info (pin defs, etc)
-  */
+/*
+ * Setup info (pin defs, etc)
+ */
 
 #define powerPin 3
 #define zeroDetectPin 2
@@ -51,7 +51,9 @@ void getDeviceId() {
  * Communications
  */
 
+// Tests to see if is connected
 bool isConnected() {
+    // Pings src transmitter?
     return true;
 }
 
