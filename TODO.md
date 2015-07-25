@@ -1,17 +1,33 @@
 #TODO
 
 ./
++ look into RFID info
++ Fix establishContact to detect both remote and local commands
 + Implement id file loading from flash memory
 + Implement UPnP protocols
-+ Implement Circuit interactions
-+ Implement command parsing
 + Possible implementations of device
 	+ Write device-identifier/upnp variables & functions into a defined namespace. Manipulate that namespace such as in http://stackoverflow.com/questions/16485006/get-list-of-functions-in-a-namespace-at-runtime
 	+ Write it into flash/EEPROM. Obtain from there.
-+ Install virtualwire
-+ Get wireless comms working
+
++ Fix up the stuff with C++ classes. Try to make it readable and shit man.
++ Implement the Commander class. Add the lib.
+	- Also, update & fix the stuff from BulbSocket.h/BulbSocket.cpp to the Arduino dir
++ Fix the transmission stuff in this one
 
 #WORKLOG
+
+####7.24.2015
+./client.ino
++ Started fixing up the codebase by implementing a BulbSocket class. Code as a whole is broken rn, still needs work.
++ deleted constants.h bc it was useless and renamed the folder to socket as per panel style
+
+6.20.15
+./client.ino
++ Get wireless comms working
++ Install virtualwire (now RadioHead RH_ASK)
++ Implement command parsing
++ Implement Circuit interactions
+
 6.15.15
 ./client.ino
 + Removed pin as function input for most functions
