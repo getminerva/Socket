@@ -10,11 +10,15 @@
 	+ Write it into flash/EEPROM. Obtain from there.
 
 + Fix up the stuff with C++ classes. Try to make it readable and shit man.
-+ Implement the Commander class. Add the lib.
-	- Also, update & fix the stuff from BulbSocket.h/BulbSocket.cpp to the Arduino dir
-+ Fix the transmission stuff in this one
++ Have to account for case where cmd isn't valid but cmd needs to clear. overflow it?
 
 #WORKLOG
+
+####7.27.2015
+./socket.ino
++ renamed main file and folder as per panel's style
++ Implemented Commander class
++ Transmissions work +++
 
 ####7.24.2015
 ./client.ino

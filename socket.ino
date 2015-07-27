@@ -4,55 +4,32 @@
  * Written by Joshua Paul A. Chan
  */
 
-
 /*
- * Setup info (pin defs, etc)
+ * Setup info (includes, pin defs, etc)
  */
 
 #include <RH_ASK.h>
 #include <SPI.h> // Needed for compilation
 
+#include <BulbSocket.h>
+#include <Commander.h>
+
 #define powerPin 3
-#define zeroDetectPin 2
 
 #define txPin 12
 #define rxPin 11
 #define pttPin 10
-#define transSpeed 2000
-#define serialSpeed 9600
 
-#define ON true
-#define OFF false
+// Create transceiver object
+RH_ASK recvr(2000, rxPin, txPin, pttPin);
 
-RH_ASK recvr(transSpeed, rxPin, txPin, pttPin);
+// Create BulbSocket object
+castle::BulbSocket bulb(powerPin, 0, 100);
 
-String inputString = "";
-bool stringComplete = false;
+// Create Commander object
+castle::Commander cmdr;
 
-String feats = "get||set||do";
-
-String action = "";
-String feat = "";
-
-int val = 100;
-int pre_val = 0;
-
-
-/*
- * Data Persistency
- */
-
-void loadData() {
-  return;
-}
-
-void saveData() {
-  return;
-}
-
-void getDeviceId() {
-  return;
-}
+// String[] feats("get", "set", "do");
 
 /*
  * Communications
@@ -65,112 +42,23 @@ bool isConnected() {
 }
 
 void establishContact() {
-    while (0 == sizeof(inputString)) {
+    while (!isConnected()) {
         Serial.print("UUID:");
-        Serial.println(UUID);
+        Serial.println("CHAN-EMB01-Photon");
         delay(300);
     }
     onConnect();
 }
 
-// Things to do on connect
+// Things to do on connect (hello)
 void onConnect() {
-    // hello
     blink(1, 1000);
     return;
 }
 
-// Things to do on disconnect
+// Things to do on disconnect (bye-bye)
 void onDisconnect() {
-    // bye-bye
-    blink(2, 1000);
-    return;
-}
-
-/*
- * CMD stuff
- */
-
-// Validates cmd
-bool isValidCmd(String s) {
-    Serial.print("Testing: ");
-    Serial.println(s);
-
-    // Pre-format
-    s.toLowerCase();
-    s.trim();
-
-    // Must be prefaced with "cmd::"
-    if (!s.startsWith("cmd::")) {
-        Serial.println("Test 1 failed.");
-        return false;
-    }
-    s = s.substring(5);
-
-    //  Serial.println(s);
-
-    // Action must be 'get', 'set' or 'do'
-    if (!s.startsWith("get::") &&  !s.startsWith("set::") && !s.startsWith("do::")) {
-        Serial.println("Test 2 failed.");
-        return false;
-    }
-    int action_pos = s.indexOf(':') + 1;
-    action = s.substring(0, action_pos);
-    s = s.substring(action_pos + 1);
-
-    // Serial.println(s);
-
-    // Can only have feature 'power' or 'brightness'
-    if (!s.startsWith("power") && !s.startsWith("brightness")) {
-        Serial.println("Test 3 failed.");
-        return false;
-    }
-    int pos = s.indexOf(':') + 1;
-    feat = s.substring(action_pos + 1, pos);
-    s = s.substring(pos + 1);
-
-    // Serial.println(s);
-
-    // Value should only exist on set
-    // Value should be between 0-100 (percentage)
-
-    val = s.toInt();
-    if ((0 > val) or (100 < val)) {return false;}
-
-    Serial.println("Tests passed.");
-
-    return true;
-}
-
-// Executes the cmd
-void executeCmd(String cmd) {
-    Serial.print("Executing : ");
-    Serial.println(cmd);
-
-    char achar = (char)action[0];
-
-    switch (achar) {
-        case 's':
-            setBrightness(val);
-            break;
-        case 'd':
-            togglePower();
-            break;
-    }
-
-    // case 'g' is default
-    Serial.print("Brightness: ");
-    Serial.println(getBrightness());
-    return;
-}
-
-// Clear the internal cmd
-void clearCmd() {
-    action = "";
-    feat = "";
-    pre_val = val;
-    val = 0;
-
+    Serial.println("Ta-ta, yo.");
 }
 
 void serialEvent() {
@@ -178,94 +66,15 @@ void serialEvent() {
         // Get new byte(s)
         char rcvChar = (char)Serial.read();
 
-        inputString += rcvChar;
-        if (rcvChar == '\n') {
-            stringComplete = true;
-        }
+        // Hand them off to commander
+        cmdr.recvCmd((String)rcvChar);
     }
 }
 
-String strFromBuffer(uint8_t* buf, uint8_t buflen) {
-    String o = "";
-    for (uint8_t i = 0; i < buflen; ++i) {
-        /*Serial.print((char)*(buf+i));*/
-        o += ((char)*(buf+i));
-    }
-    return o;
-}
-
-void recvCmd() {
-    uint8_t buf[RH_ASK_MAX_MESSAGE_LEN];
-    uint8_t buflen = sizeof(buf);
-
-    if (recvr.recv(buf, &buflen)) {
-
-        recvr.printBuffer(" ", buf, buflen);
-        // Get new byte(s)
-
-        String msg = strFromBuffer(buf, buflen);
-        Serial.println(msg);
-
-        inputString += msg;
-        // TODO: How to check if whole message recv'd
-        if (inputString.endsWith("::end")) {
-            stringComplete = true;
-        }
-    }
-}
-
-/*
- * Socket Functionality
- */
-
-// Function for getting the power status of the lightbulb
-bool getPower() {
-    return ((bool)bitRead(PORTD, powerPin));
-}
-
-// function for setting the power status of the lightbulb
-void setPower(bool state) {
-    pre_val = val;
-    if (state == true) {
-        digitalWrite(powerPin, HIGH);
-        val = 100;
-    }
-    else {
-        digitalWrite(powerPin, LOW);
-        val = 0;
-    }
-    return;
-}
-
-// function for toggling the power status of the lightbulb
-void togglePower() {
-    // if Relay
-    bool state = getPower();
-    setPower((!state));
-
-    //if Triac
-    if (0 < val) {setBrightness(0);}
-    else {setBrightness(pre_val);}
-}
-
-// function for getting the brightness level of the lightbulb
-int getBrightness() {
-    return val;
-}
-
-//function for setting the brightness level of the lightbulb
-void setBrightness(int n_val) {
-    pre_val = val;
-    if (100 < n_val) {n_val = 100;}
-    else if (0 > val) {n_val = 0;}
-    val = n_val;
-    return;
-}
-
-
-// Interrupt Output Power
+// Interrupt for Output Power
 void interrupt_outputPowwer() {
     //Delay before output
+    int val = bulb.getLevel();
     delayMicroseconds(val+1000);
     digitalWrite(powerPin, HIGH);
 
@@ -284,75 +93,83 @@ void initInterrupt() {
 
 // Blink light n times
 void blink(int n, int d) {
-    // Don't give me a stupid number
-    if ((0 >= n) or (0 >= d)) {return;}
-    // Don't give me a huge number
-    if ((10 < n) or (10000 < d)) {return;}
+    if ((0 >= n) or (0 >= d)) {return;} // Don't give me neg numbers
+    if ((10 < n) or (10000 < d)) {return;} // Don't give me a huge number
 
     for (int i = 0; i < n; i++) {
-        togglePower();
+        bulb.toggle();
         delay(d);
-        togglePower();
+        bulb.toggle();
         delay(d);
     }
-}
-
-// Pulses in an sinusodial fashion
-void pulse(int n) {
-    // Don't give me a stupid number
-    if (0 >= n) {return;}
-    // Don't give me a huge number
-    if (10 < n) {return;}
-
-    // Phase length in mS
-    int phaseLen = 1000;
-
-    // Brighten until phaseLen/2, then dim
-    // TODO
-
-    return;
 }
 
 /*
  * Main stuff
  */
 
-    // Set it low first
-void setup() {
-    digitalWrite(powerPin, LOW);
+void execCmd(String cmd) {
+    Serial.print("Executing command: ");
+    Serial.println(cmd);
 
-    // Then set as output
-    pinMode(powerPin, OUTPUT);
-    setPower(ON);
+    // TODO
+    // switch (achar) {
+    //     case 's':
+    //         bulb.setLevel(val);
+    //         break;
+    //     case 'd':
+    //         bulb.toggle();
+    //         break;
+    // }
+
+    delay(100);
+    Serial.println("Command executed.");
+}
+
+void setup() {
+    Serial.begin(9600);
 
     // Blink at first power on
     blink(2, 100);
-    setPower(ON);
 
-    Serial.begin(serialSpeed);
-
+    // Component diagnostics
     if (!recvr.init()) {
-        Serial.println("[socket::recvr] init failed.");
+        Serial.println("[socket:recvr] init failed.");
+    }
+    if (false) {
+        Serial.println("[socket:bulb] init failed.");
+    }
+    if (false) {
+        Serial.println("[socket:cmdr] init failed.");
     }
 
     Serial.println("[socket] is ready.");
 
-    establishContact();
+    // establishContact();
 }
 
 void loop() {
-    recvCmd();
+    uint8_t buf[RH_ASK_MAX_MESSAGE_LEN];
+    uint8_t buflen = sizeof(buf);
 
-    if (stringComplete) {
-        Serial.print(inputString);
-        if (isValidCmd(inputString)) {
-            executeCmd(inputString);
-            clearCmd();
+    if (recvr.recv(buf, &buflen)) {
+        // driver.printBuffer("Got: ", buf, buflen);  // Diagnostic printing
+        String msg = castle::strFromCharArray(buf, buflen);
+        // Serial.println(msg); // Diagnostic printing
+
+        if (50 <= (cmdr.getRawCmd()).length()) { // Thresholding - once the string gets too big, it's cleared
+            cmdr.clearCmd();
         }
-        inputString = "";
-        stringComplete = false;
+        cmdr.recvCmd(msg);
+
     }
-    if (!isConnected()) {
-        onDisconnect();
+    if (cmdr.hasValidCmd()) {
+        // cmdr.execCmd(cmdr.getRawCmd()); // TODO: y'know, in fact, I could just let cmdr handle the string manipulations and checking and implement an execCmd function that takes the rawCmd and does whatever based on that.
+        // Actually, yeah, I'll do that.
+        execCmd(cmdr.getRawCmd());
+        cmdr.clearCmd();
     }
+    // Diagnostic printing
+    Serial.println("Commander has: " + cmdr.getRawCmd());
+    delay(10);
 }
