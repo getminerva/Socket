@@ -9,7 +9,9 @@
 	+ Write device-identifier/upnp variables & functions into a defined namespace. Manipulate that namespace such as in http://stackoverflow.com/questions/16485006/get-list-of-functions-in-a-namespace-at-runtime
 	+ Write it into flash/EEPROM. Obtain from there.
 
-+ Fix up the stuff with C++ classes. Try to make it readable and shit man.
++ Fix up the stuff with C++ classes. Try to make it more readable
+	- BulbSocket - make it inherit from a Dev class? Would only be useful if I still wanted to have an Agent* or Agents[] var in commander.
+	+ Commander - implement cmd sending. init a git repo for both bulbsocket and commander first though
 + Have to account for case where cmd isn't valid but cmd needs to clear. overflow it?
 
 #WORKLOG
